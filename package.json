@@ -1,0 +1,36 @@
+{
+  "name": "RoadTo0K",
+  "version": "1.0.0",
+  "description": "Road to 0K - Dota 2",
+  "author": "iFeed",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/gkastrinis/road-to-0K.git"
+  },
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "build --dir",
+    "dist": "build"
+  },
+  "build": {
+    "appId": "Road to 0K - Dota 2",
+    "win": {
+      "target": "NSIS",
+      "icon": "build/dota2-inv.png"
+    }
+  },
+  "devDependencies": {
+    "dialog": "^0.3.1",
+    "electron": "^2.0.8",
+    "electron-builder": "^20.28.4"
+  },
+  "dependencies": {
+    "electron-store": "^2.0.0",
+    "fs": "0.0.1-security",
+    "highcharts": "^6.1.1",
+    "highcharts-more-node": "^5.0.13",
+    "jquery": "^3.3.1"
+  }
+}
