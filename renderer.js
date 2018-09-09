@@ -74,6 +74,7 @@ function initContents() {
 		$('#empty').hide()
 		readJSON()
 		calculateMMR()
+		calculateMMR() // TODO: HACK!!!
 	} else {
 		$('#empty').show()
 	}
@@ -162,7 +163,7 @@ function calculateMMR() {
 	let minMMR         = 10000
 	let maxMMR         = 0
 	let mmrGames       = 0
-	
+
 	const MMR = dataIteration.games
 	
 	let winSum = 0, lossSum = 0
@@ -224,6 +225,7 @@ function calculateMMR() {
 	//var maxMMR = Math.max(...MMR);
 	//var avgMMR = Math.round(MMR.reduce(function(p,c,i){return p+(c-p)/(i+1)}, 0));
 	$('#games').text(mmrGames)
+	$('#wins').text(winSum)
 	$('#winRate').text(Math.round(100 * (winSum / mmrGames)) + "%")
 	$('#minMMR').text(minMMR)
 	$('#curMMR').text(curMMR)
@@ -270,7 +272,7 @@ function calculateMMR() {
 			tickColor: cLines,
 			labels: {
 				style: { color: cBase, fontSize: '20px' },
-				formatter: () => Highcharts.numberFormat(this.value, 0)
+				formatter: function() { return Highcharts.numberFormat(this.value, 0) }
 			},
 		},
 		tooltip: {
