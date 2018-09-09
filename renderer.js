@@ -6,12 +6,7 @@ const Store = require('electron-store')
 
 const win = remote.getCurrentWindow()
 
-let dataFile
-let iteration = 'Current Season'
-let rawData
-
-let disablableMenuItems = []
-
+let state = {}
 initWindowControls()
 initContents()
 setupRightClick()
@@ -42,16 +37,21 @@ function initContents() {
 
 	let saveFunc = () => {
 		let rawDataStr = $('#rawData').val()
-		fs.writeFile(dataFile, rawDataStr, (err, rawDataStr) => {
+		fs.writeFile(state.dataFile, rawDataStr, (err, rawDataStr) => {
 			if (err) console.log(err)
 			console.log('Write to file was successful')
 		})
 
-		rawData = Buffer.from(rawDataStr, 'utf8')
-		calculateMMR(rawData, iteration)
+		state.rawData = Buffer.from(rawDataStr, 'utf8')
+		calculateMMR()
 		$('#editMMR').hide()
 		$('#charts').show()
 	}
+	let cancelFunc = () => {
+		$('#editMMR').hide()
+		$('#charts').show()
+	}
+
 	$(document).keydown(event => {
         // If Control or Command key is pressed and the S key is pressed
         // run save function. 83 is the key code for S.
@@ -59,100 +59,96 @@ function initContents() {
 			event.preventDefault()
 			saveFunc()
             return false
-        }
+		} else if (event.which == 27) {
+			event.preventDefault()
+			cancelFunc()
+            return false
+		}
     })
+	
 	$('#save').click(saveFunc)
+	$('#cancel').click(cancelFunc)
 
-	$('#cancel').click(() => {
-		$('#editMMR').hide()
-		$('#charts').show()
-	})
-
-	dataFile = new Store().get('dataFile')
-	if (dataFile) {
+	state.dataFile = new Store().get('dataFile')
+	if (state.dataFile) {
 		$('#empty').hide()
-		readMMR()
+		readJSON()
+		calculateMMR()
 	} else {
 		$('#empty').show()
 	}
 }
 
 function setupRightClick() {
+	readJSON()
+
 	const ctxMenu = new Menu()
 
-	let item = new MenuItem({
+	ctxMenu.append(new MenuItem({
 		label: 'Edit MMR',
+		enabled: state.dataFile != undefined,
 		click: () => {
-			$('#rawData').val(rawData.toString('utf8'))
+			$('#rawData').val(state.rawData.toString('utf8'))
 			$('#charts').hide()
 			$('#editMMR').show()
 		}
-	})
-	ctxMenu.append(item)
-	disablableMenuItems.push(item)
+	}))
 	
-	item = new MenuItem({
+	ctxMenu.append(new MenuItem({
 		label: 'Read MMR file',
-		click: () => { readMMR() }
-	})
-	ctxMenu.append(item)
-	disablableMenuItems.push(item)
+		enabled: state.dataFile != undefined,
+		click: () => {
+			readJSON()
+			calculateMMR()
+		}
+	}))
 	
 	ctxMenu.append(new MenuItem({
 		label: 'Select MMR file',
 		click: () => {
-			dialog.showOpenDialog((files) => {
-				if (!dataFile) $('#empty').hide()
-				dataFile = files[0]
-				new Store().set('dataFile', dataFile)
-				readMMR()
-				$.each(disablableMenuItems, (index, value) => { value.enabled = true })
+			dialog.showOpenDialog(files => {
+				if (!state.dataFile) $('#empty').hide()
+				state.dataFile = files[0]
+				new Store().set('dataFile', state.dataFile)
+				readJSON()
+				calculateMMR()
+				setupRightClick()
 			})
 		}
 	}))
+
+	if (state.iterations) {
+		ctxMenu.append(new MenuItem({ type: 'separator' }))
+		state.iterations.forEach(it => {
+			ctxMenu.append(new MenuItem({
+				label: it,
+				click: () => {
+					state.currentIteration = it
+					calculateMMR()
+				}
+			}))
+		})	
+	}
 	
 	ctxMenu.append(new MenuItem({ type: 'separator' }))
-	
-	item = new MenuItem({
-		label: 'Current Season',
-		click: () => {
-			iteration = 'Current Season'
-			calculateMMR(rawData, iteration)
-		}
-	})
-	ctxMenu.append(item)
-	disablableMenuItems.push(item)
-	
-	item = new MenuItem({
-		label: 'Old Season',
-		click: () => {
-			iteration = 'Old Data'
-			calculateMMR(rawData, iteration)
-		}
-	})
-	ctxMenu.append(item)
-	disablableMenuItems.push(item)
-	
-	ctxMenu.append(new MenuItem({ type: 'separator' }))
-	
 	ctxMenu.append(new MenuItem({
 		label: 'DevTools',
 		click: () => { win.webContents.openDevTools() }
 	}))
 	
 	win.webContents.on('context-menu', () => { ctxMenu.popup(win) })
-
-	disablableMenuItems.forEach(it => { it.enabled = (dataFile != undefined) })
 }
 
-function readMMR() {
-	rawData = fs.readFileSync(dataFile)
-	calculateMMR(rawData, iteration)
+function readJSON() {
+	if (!state.dataFile) return
+	state.rawData = fs.readFileSync(state.dataFile)
+	state.data = JSON.parse(state.rawData)
+	state.iterations = state.data.mmr.map(it => it.iteration)
+	state.currentIteration = state.iterations[0]
 }
 
-function calculateMMR(rawData, iteration) {
-	const data = JSON.parse(rawData)
-	const dataIteration = data.mmr.find(it => { return it.iteration === iteration })
+function calculateMMR() {
+	const dataIteration = state.data.mmr.find(it => it.iteration == state.currentIteration)
 
 	let dailyMMR       = []
 	let dailyMMRRange  = []
@@ -222,16 +218,16 @@ function calculateMMR(rawData, iteration) {
 		MMRSumResult[i]   = [t, winSum - lossSum]
 	}
 	
-	$('#dotabuff').attr('href', data.profile)
-	$('#dotabuff > img').attr('src', data.avatar)
+	$('#dotabuff').attr('href', state.data.profile)
+	$('#dotabuff > img').attr('src', state.data.avatar)
 	//var minMMR = Math.min.apply(null, MMR);
 	//var maxMMR = Math.max(...MMR);
 	//var avgMMR = Math.round(MMR.reduce(function(p,c,i){return p+(c-p)/(i+1)}, 0));
+	$('#games').text(mmrGames)
+	$('#winRate').text(Math.round(100 * (winSum / mmrGames)) + "%")
 	$('#minMMR').text(minMMR)
 	$('#curMMR').text(curMMR)
 	$('#maxMMR').text(maxMMR)
-	$('#games').text(mmrGames)
-	$('#winRate').text(Math.round(100 * (winSum / mmrGames)) + "%")
 	$('#maxLoseStreak').text("-"+maxLoseStreak)
 	$('#maxWinStreak').text("+"+maxWinStreak)
 	
@@ -241,13 +237,13 @@ function calculateMMR(rawData, iteration) {
 		$(dummy).remove()
 		return color
 	}
-	// Colors
 	let cBack = gcolor('c-dark-gray')
 	let cBase = gcolor('c-white')
 	let cDisabled = gcolor('c-light-gray-2')
 	let cLines = gcolor('c-light-gray-2')
 	let cMMR = gcolor('c-blue')
-	let cMMRRange = cPlot = gcolor('c-light-blue')
+	let cMMRRange = gcolor('c-light-blue')
+	let cPlot = gcolor('c-light-blue')
 	let cWon = gcolor('c-green')
 	let cLost = gcolor('c-red')
 	let cNet = gcolor('c-gold')
@@ -263,7 +259,8 @@ function calculateMMR(rawData, iteration) {
 		xAxis: {
 			lineColor: cLines,
 			tickColor: cLines,
-			labels: { formatter: function() { return /*'Day '+ Highcharts.numberFormat(this.value, 0)*/ ''; } },
+			// labels: { formatter: function() { return 'Day '+ Highcharts.numberFormat(this.value, 0) ''; } },
+			labels: { formatter: () => '' },
 			type: 'datetime'
 		},
 		yAxis: {
@@ -273,7 +270,7 @@ function calculateMMR(rawData, iteration) {
 			tickColor: cLines,
 			labels: {
 				style: { color: cBase, fontSize: '20px' },
-				formatter: function() { return Highcharts.numberFormat(this.value, 0); }
+				formatter: () => Highcharts.numberFormat(this.value, 0)
 			},
 		},
 		tooltip: {
@@ -316,8 +313,7 @@ function calculateMMR(rawData, iteration) {
 		}
 	}
 	let plotLines = [ plot(minDate, cLost, "Lowest") ]
-	for (let i = 0; i < dataIteration.plotlines.length; i++)
-		plotLines.push( plot(new Date(dataIteration.plotlines[i][0]).getTime(), cPlot, dataIteration.plotlines[i][1]) )
+	dataIteration.plotlines.forEach(it => plotLines.push(plot(new Date(it[0]).getTime(), cPlot, it[1])))
 	
 	// Charts
 	new Highcharts.Chart({

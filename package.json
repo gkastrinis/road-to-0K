@@ -1,8 +1,9 @@
 {
-  "name": "RoadTo0K",
-  "version": "1.0.0",
+  "name": "road-to-0k",
+  "productName": "Road To 0K",
+  "version": "1.0.2",
   "description": "Road to 0K - Dota 2",
-  "author": "iFeed",
+  "author": "George Kastrinis <george.kast@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -15,10 +16,12 @@
     "dist": "build"
   },
   "build": {
-    "appId": "Road to 0K - Dota 2",
+    "appId": "com.electron.roadTo0K",
+    "productName": "Road To 0K",
     "win": {
       "target": "NSIS",
-      "icon": "build/dota2-inv.png"
+      "icon": "build/dota2-inv.png",
+      "artifactName": "${productName} Setup.${ext}"
     }
   },
   "devDependencies": {

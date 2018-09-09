@@ -10,7 +10,6 @@ function createWindow () {
     let { width, height, x, y } = store.get('windowBounds')
 
     win = new BrowserWindow({
-        title: 'Road to 0K',
         icon: './dota2-inv.png',
         width, height,
         x, y,
@@ -43,3 +42,6 @@ function createWindow () {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', createWindow)
+
+// Quit when all windows are closed.
+app.on('window-all-closed', () => { app.quit() })
