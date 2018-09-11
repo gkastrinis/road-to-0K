@@ -41,7 +41,7 @@
 		</div>
 
 		<div id="editMMR">
-			<textarea id="rawData" class="c-b-dark-gray c-white"></textarea>
+			<div id="editor"></div>
 			<div class="btn-group">
 				<a href="#" id="save" class="btn-lg btn-success">Save</a>
 				<a href="#" id="cancel" class="btn-lg btn-danger">Cancel</a>
@@ -51,6 +51,9 @@
 	</div>
 </body>
 
+<script src="ace-min-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
+<script src="ace-min-noconflict/mode-json.js" type="text/javascript" charset="utf-8"></script>
+<script src="ace-min-noconflict/theme-monokai.js" type="text/javascript" charset="utf-8"></script>
 <script>
 	window.$ = window.jQuery = require('jquery')
 	require('./renderer.js')

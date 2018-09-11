@@ -5,6 +5,9 @@ const fs = require('fs')
 const Store = require('electron-store')
 
 const win = remote.getCurrentWindow()
+const editor = ace.edit('editor')
+editor.setTheme('ace/theme/monokai')
+editor.session.setMode('ace/mode/json')
 
 let state = {}
 initWindowControls()
@@ -36,13 +39,10 @@ function initContents() {
 	$('#editMMR').hide()
 
 	let saveFunc = () => {
-		let rawDataStr = $('#rawData').val()
-		fs.writeFile(state.dataFile, rawDataStr, (err, rawDataStr) => {
-			if (err) console.log(err)
-			console.log('Write to file was successful')
-		})
-
+		let rawDataStr = editor.getValue()
+		fs.writeFile(state.dataFile, rawDataStr, (e, data) => console.log(e))
 		state.rawData = Buffer.from(rawDataStr, 'utf8')
+		console.log(state.rawData)
 		calculateMMR()
 		$('#editMMR').hide()
 		$('#charts').show()
@@ -72,24 +72,23 @@ function initContents() {
 	state.dataFile = new Store().get('dataFile')
 	if (state.dataFile) {
 		$('#empty').hide()
-		readJSON()
-		calculateMMR()
-		calculateMMR() // TODO: HACK!!!
+		calculateMMR(true)
+		calculateMMR(false) // TODO: HACK!!!
 	} else {
 		$('#empty').show()
 	}
 }
 
 function setupRightClick() {
-	readJSON()
-
 	const ctxMenu = new Menu()
 
 	ctxMenu.append(new MenuItem({
 		label: 'Edit MMR',
 		enabled: state.dataFile != undefined,
 		click: () => {
-			$('#rawData').val(state.rawData.toString('utf8'))
+			let { height } = win.getBounds()
+			$('#editor').height(height-100)
+			editor.setValue(state.rawData.toString('utf8'), -1)
 			$('#charts').hide()
 			$('#editMMR').show()
 		}
@@ -98,10 +97,7 @@ function setupRightClick() {
 	ctxMenu.append(new MenuItem({
 		label: 'Read MMR file',
 		enabled: state.dataFile != undefined,
-		click: () => {
-			readJSON()
-			calculateMMR()
-		}
+		click: () => calculateMMR(true)
 	}))
 	
 	ctxMenu.append(new MenuItem({
@@ -111,8 +107,7 @@ function setupRightClick() {
 				if (!state.dataFile) $('#empty').hide()
 				state.dataFile = files[0]
 				new Store().set('dataFile', state.dataFile)
-				readJSON()
-				calculateMMR()
+				calculateMMR(true)
 				setupRightClick()
 			})
 		}
@@ -140,15 +135,13 @@ function setupRightClick() {
 	win.webContents.on('context-menu', () => { ctxMenu.popup(win) })
 }
 
-function readJSON() {
+function calculateMMR(readFile) {
 	if (!state.dataFile) return
-	state.rawData = fs.readFileSync(state.dataFile)
+	if (readFile) state.rawData = fs.readFileSync(state.dataFile)
+
 	state.data = JSON.parse(state.rawData)
 	state.iterations = state.data.mmr.map(it => it.iteration)
 	state.currentIteration = state.iterations[0]
-}
-
-function calculateMMR() {
 	const dataIteration = state.data.mmr.find(it => it.iteration == state.currentIteration)
 
 	let dailyMMR       = []
