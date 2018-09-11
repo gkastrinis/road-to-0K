@@ -1,5 +1,5 @@
 const {remote} = require('electron')
-const {Menu, MenuItem, dialog} = require('electron').remote
+const {dialog} = require('electron').remote
 const Highcharts = require('highcharts-more-node')
 const fs = require('fs')
 const Store = require('electron-store')
@@ -8,11 +8,18 @@ const win = remote.getCurrentWindow()
 const editor = ace.edit('editor')
 editor.setTheme('ace/theme/monokai')
 editor.session.setMode('ace/mode/json')
+editor.setFontSize(14)
 
 let state = {}
 initWindowControls()
 initContents()
 setupRightClick()
+redraw()
+
+function redraw() {
+	let { width, height } = win.getBounds()
+	win.setSize(width+1, height+1)
+}
 
 function initWindowControls() {
 	$('#min-button').click(event => { win.minimize() })
@@ -42,8 +49,7 @@ function initContents() {
 		let rawDataStr = editor.getValue()
 		fs.writeFile(state.dataFile, rawDataStr, (e, data) => console.log(e))
 		state.rawData = Buffer.from(rawDataStr, 'utf8')
-		console.log(state.rawData)
-		calculateMMR()
+		calculateMMR(false)
 		$('#editMMR').hide()
 		$('#charts').show()
 	}
@@ -73,75 +79,68 @@ function initContents() {
 	if (state.dataFile) {
 		$('#empty').hide()
 		calculateMMR(true)
-		calculateMMR(false) // TODO: HACK!!!
 	} else {
 		$('#empty').show()
 	}
 }
 
 function setupRightClick() {
-	const ctxMenu = new Menu()
-
-	ctxMenu.append(new MenuItem({
-		label: 'Edit MMR',
-		enabled: state.dataFile != undefined,
-		click: () => {
-			let { height } = win.getBounds()
-			$('#editor').height(height-100)
-			editor.setValue(state.rawData.toString('utf8'), -1)
-			$('#charts').hide()
-			$('#editMMR').show()
-		}
-	}))
-	
-	ctxMenu.append(new MenuItem({
-		label: 'Read MMR file',
-		enabled: state.dataFile != undefined,
-		click: () => calculateMMR(true)
-	}))
-	
-	ctxMenu.append(new MenuItem({
-		label: 'Select MMR file',
-		click: () => {
-			dialog.showOpenDialog(files => {
-				if (!state.dataFile) $('#empty').hide()
-				state.dataFile = files[0]
-				new Store().set('dataFile', state.dataFile)
-				calculateMMR(true)
-				setupRightClick()
-			})
-		}
-	}))
+	$('#menu-edit').click(() => {
+		$('#charts').hide()
+		$('#editMMR').show()
+		let { height } = win.getBounds()
+		editor.setValue(state.rawData.toString('utf8'), -1)
+		$('#editor').height(height-100)
+		redraw()
+	})
+	$('#menu-reload').click(() => calculateMMR(true))
+	$('#menu-file').click(() => {
+		dialog.showOpenDialog(files => {
+			if (!files) return
+			if (!state.dataFile) $('#empty').hide()
+			state.dataFile = files[0]
+			new Store().set('dataFile', state.dataFile)
+			calculateMMR(true)
+			setupRightClick()
+		})
+	})
+	$('#menu-devtools').click(() => win.webContents.openDevTools())
 
 	if (state.iterations) {
-		ctxMenu.append(new MenuItem({ type: 'separator' }))
 		state.iterations.forEach(it => {
-			ctxMenu.append(new MenuItem({
-				label: it,
-				click: () => {
-					state.currentIteration = it
-					calculateMMR()
-				}
-			}))
-		})	
+			let el = $('<span/>').text(it)
+			el.click(() => {
+				state.currentIteration = it
+				calculateMMR(false)
+			})
+			$('#menu-extra').append(el)
+		})
+		$('#menu-extra').append($('<span/>').append($('<hr/>').addClass('sep')))
 	}
-	
-	ctxMenu.append(new MenuItem({ type: 'separator' }))
-	ctxMenu.append(new MenuItem({
-		label: 'DevTools',
-		click: () => { win.webContents.openDevTools() }
-	}))
-	
-	win.webContents.on('context-menu', () => { ctxMenu.popup(win) })
+
+	document.addEventListener('contextmenu', e => {
+		e.preventDefault()
+		$('#menu').css({
+			display: "inline-flex",
+			position: "absolute",
+			top: e.pageY,
+			left: e.pageX,
+		})
+	}, false)
+
+	document.addEventListener('click', e => $('#menu').hide())
 }
 
 function calculateMMR(readFile) {
 	if (!state.dataFile) return
-	if (readFile) state.rawData = fs.readFileSync(state.dataFile)
+	if (readFile) {
+		state.rawData = fs.readFileSync(state.dataFile)
+		state.data = JSON.parse(state.rawData)
+		state.iterations = state.data.mmr.map(it => it.iteration)
+		state.currentIteration = state.iterations[0]
+	} else
+		state.data = JSON.parse(state.rawData)
 
-	state.data = JSON.parse(state.rawData)
-	state.iterations = state.data.mmr.map(it => it.iteration)
-	state.currentIteration = state.iterations[0]
 	const dataIteration = state.data.mmr.find(it => it.iteration == state.currentIteration)
 
 	let dailyMMR       = []

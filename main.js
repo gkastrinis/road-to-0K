@@ -15,21 +15,21 @@ function createWindow () {
         x, y,
         minWidth: 1024, minHeight: 800,
         show: false,
-        frame: false
+        frame: false,
     })
     win.loadFile('index.html')
     win.setMenu(null)
-    win.show()
     //win.webContents.openDevTools()
 
+    win.once('ready-to-show', () => win.show())
     // The BrowserWindow class extends the node.js core EventEmitter class, so we use that API
     // to listen to events on the BrowserWindow. The resize event is emitted when the window size changes.
-    win.on('resize', () => { store.set('windowBounds', win.getBounds()) })
-    win.on('move', () => { store.set('windowBounds', win.getBounds()) })
+    win.on('resize', () => store.set('windowBounds', win.getBounds()))
+    win.on('move', () => store.set('windowBounds', win.getBounds()))
     // Dereference the window object, usually you would store windows
     // in an array if your app supports multi windows, this is the time
     // when you should delete the corresponding element.
-    win.on('closed', () => { win = null })
+    win.on('closed', () => win = null)
 
     // Open URLs externally
 	win.webContents.on('new-window', (event, url) => {

@@ -21,3 +21,30 @@ body { font-family: 'Unica One'; }
 }
 
 .btn-lg { margin: 10px 5px 10px 5px; }
+
+#menu {
+    display: none;
+    flex-direction: column;
+    align-items: flex-start;
+    cursor: default;
+    z-index: 100;
+}
+
+#menu span {
+    display: block;
+    padding: 2px 15px;
+    width: 100%;
+}
+
+#menu span:hover {
+    background-color: #666;
+}
+
+.sep {
+    height: 1px;
+    border: 0;
+    border-top: 1px solid #ccc;
+    margin: 5px 0;
+    padding: 0; 
+    width: 80px;
+}
