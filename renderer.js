@@ -151,17 +151,19 @@ function calculateMMR(readFile) {
 	let MMRWinSum      = []
 	let MMRLossSum     = []
 	let MMRSumResult   = []
+	let MMRSumDeriv    = []
 	let curMMR         = 0
 	let minMMR         = 10000
 	let maxMMR         = 0
 	let mmrGames       = 0
 
 	const MMR = dataIteration.games
-	
+
 	let winSum = 0, lossSum = 0
 	let curDate = new Date(dataIteration.startDate), minDate
 	let currWinStreak = 0, currLoseStreak = 0, maxWinStreak = 0, maxLoseStreak = 0
-	for (var i = 0; i < MMR.length; i++) {
+	let prevMMR
+	for (let i = 0; i < MMR.length; i++) {
 		let day = MMR[i]
 		let win = 0, loss = 0
 		let dayMin = curMMR, dayMax = curMMR
@@ -209,8 +211,12 @@ function calculateMMR(readFile) {
 		MMRWinSum[i]      = [t, winSum]
 		MMRLossSum[i]     = [t, -lossSum]
 		MMRSumResult[i]   = [t, winSum - lossSum]
+
+		MMRSumDeriv[i]    = [t, prevMMR ? (winSum - lossSum) - prevMMR : 0]
+		prevMMR           = winSum - lossSum
+		//{name:t, x:t,y:v, color: cLost}
 	}
-	
+
 	$('#dotabuff').attr('href', state.data.profile)
 	$('#dotabuff > img').attr('src', state.data.avatar)
 	//var minMMR = Math.min.apply(null, MMR);
@@ -309,14 +315,13 @@ function calculateMMR(readFile) {
 	let plotLines = [ plot(minDate, cLost, "Lowest") ]
 	dataIteration.plotlines.forEach(it => plotLines.push(plot(new Date(it[0]).getTime(), cPlot, it[1])))
 	
-	// Charts
 	new Highcharts.Chart({
 		chart: { renderTo: 'chart1' },
 		title: { text: '' },
 		xAxis: { plotLines: plotLines },
 		yAxis: { min: minMMR },
 		series: [{
-			name: "Solo MMR",
+			name: "MMR",
 			color: cMMR,
 			zIndex: 0,
 			data: dailyMMR,
@@ -363,5 +368,13 @@ function calculateMMR(readFile) {
 			color: cNet,
 			type: 'spline',
 			data: MMRSumResult,
+	}]})
+	new Highcharts.Chart({
+		chart: { renderTo: 'chart4' },
+		title: { text: '' },
+		series: [{
+			name: "Net 1st Derivative",
+			color: cNet,
+			data: MMRSumDeriv,
 	}]})
 }
