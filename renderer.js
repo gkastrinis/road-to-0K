@@ -11,17 +11,53 @@ editor.session.setMode('ace/mode/json')
 editor.setFontSize(14)
 
 let state = {}
-initWindowControls()
+setupWindowBar()
 initContents()
 setupRightClick()
 redraw()
 
+
 function redraw() {
 	let { width, height } = win.getBounds()
 	win.setSize(width+1, height+1)
+	setTimeout(() => win.setSize(width, height), 10)
 }
 
-function initWindowControls() {
+function openEditor() {
+	state.origTitle = $('#window-title').text()
+	$('#window-title').text(state.origTitle + " - " + new Date().toLocaleDateString())
+	$('#charts').hide()
+	$('#editMMR').show()
+	editor.setValue(state.rawData.toString('utf8'), -1)
+	let { height } = win.getBounds()
+	$('#editor').height(height-100)
+
+	redraw()
+}
+
+function closeEditor() {
+	$('#editMMR').hide()
+	$('#charts').show()
+	$('#window-title').text(state.origTitle)
+}
+
+function saveAndCloseEditor() {
+	let rawDataStr = editor.getValue()
+	fs.writeFile(state.dataFile, rawDataStr, (e, data) => console.log(e))
+	state.rawData = Buffer.from(rawDataStr, 'utf8')
+
+	calculateMMR(false)
+	closeEditor()
+}
+
+function loadFile(file) {
+	if (!state.dataFile) $('#empty').hide()
+	state.dataFile = file
+	new Store().set('dataFile', state.dataFile)
+}
+
+
+function setupWindowBar() {
 	$('#min-button').click(event => { win.minimize() })
 	$('#max-button').click(event => { win.maximize() ; toggleMaxRestoreButtons() })
 	$('#restore-button').click(event => { win.unmaximize() ; toggleMaxRestoreButtons() })
@@ -45,35 +81,22 @@ function initWindowControls() {
 function initContents() {
 	$('#editMMR').hide()
 
-	let saveFunc = () => {
-		let rawDataStr = editor.getValue()
-		fs.writeFile(state.dataFile, rawDataStr, (e, data) => console.log(e))
-		state.rawData = Buffer.from(rawDataStr, 'utf8')
-		calculateMMR(false)
-		$('#editMMR').hide()
-		$('#charts').show()
-	}
-	let cancelFunc = () => {
-		$('#editMMR').hide()
-		$('#charts').show()
-	}
-
 	$(document).keydown(event => {
-        // If Control or Command key is pressed and the S key is pressed
-        // run save function. 83 is the key code for S.
+		// Ctrl + S
         if ($('#editMMR').is(':visible') && (event.ctrlKey || event.metaKey) && event.which == 83) {
 			event.preventDefault()
-			saveFunc()
+			saveAndCloseEditor()
             return false
-		} else if (event.which == 27) {
+		}
+		// Esc
+		else if (event.which == 27) {
 			event.preventDefault()
-			cancelFunc()
+			closeEditor()
             return false
 		}
     })
-	
-	$('#save').click(saveFunc)
-	$('#cancel').click(cancelFunc)
+	$('#save').click(saveAndCloseEditor)
+	$('#cancel').click(closeEditor)
 
 	state.dataFile = new Store().get('dataFile')
 	if (state.dataFile) {
@@ -85,21 +108,12 @@ function initContents() {
 }
 
 function setupRightClick() {
-	$('#menu-edit').click(() => {
-		$('#charts').hide()
-		$('#editMMR').show()
-		let { height } = win.getBounds()
-		editor.setValue(state.rawData.toString('utf8'), -1)
-		$('#editor').height(height-100)
-		redraw()
-	})
+	$('#menu-edit').click(() => openEditor())
 	$('#menu-reload').click(() => calculateMMR(true))
 	$('#menu-file').click(() => {
 		dialog.showOpenDialog(files => {
 			if (!files) return
-			if (!state.dataFile) $('#empty').hide()
-			state.dataFile = files[0]
-			new Store().set('dataFile', state.dataFile)
+			loadFile(files[0])
 			calculateMMR(true)
 			setupRightClick()
 		})
@@ -121,7 +135,7 @@ function setupRightClick() {
 	document.addEventListener('contextmenu', e => {
 		e.preventDefault()
 		$('#menu').css({
-			display: "inline-flex",
+			display: "block",
 			position: "absolute",
 			top: e.pageY,
 			left: e.pageX,
