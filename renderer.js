@@ -3,29 +3,36 @@ const {dialog} = require('electron').remote
 const Highcharts = require('highcharts-more-node')
 const fs = require('fs')
 const Store = require('electron-store')
+const WinBar = require('./winbar.js')
+const {Menu, MenuItem, MenuSeparator} = require('./menu.js')
 
 const win = remote.getCurrentWindow()
+const winBar = new WinBar(win, 'winBar', 'Road to 0K')
+
 const editor = ace.edit('editor')
 editor.setTheme('ace/theme/monokai')
 editor.session.setMode('ace/mode/json')
 editor.setFontSize(14)
 
 let state = {}
-setupWindowBar()
-initContents()
-setupRightClick()
-redraw()
+loadFile()
+if (state.dataFile) {
+	$('#empty').hide()
+	calculateMMR()
+	redraw()
+}
+initEditor()
+initRightClick()
 
 
 function redraw() {
 	let { width, height } = win.getBounds()
 	win.setSize(width+1, height+1)
-	setTimeout(() => win.setSize(width, height), 10)
+	setTimeout(() => win.setSize(width, height), 1000)
 }
 
 function openEditor() {
-	state.origTitle = $('#window-title').text()
-	$('#window-title').text(state.origTitle + " - " + new Date().toLocaleDateString())
+	winBar.tempTitle(" - " + new Date().toLocaleDateString())
 	$('#charts').hide()
 	$('#editMMR').show()
 	editor.setValue(state.rawData.toString('utf8'), -1)
@@ -36,49 +43,43 @@ function openEditor() {
 }
 
 function closeEditor() {
+	winBar.restoreTitle()
 	$('#editMMR').hide()
 	$('#charts').show()
-	$('#window-title').text(state.origTitle)
+
+	redraw()
 }
 
 function saveAndCloseEditor() {
 	let rawDataStr = editor.getValue()
 	fs.writeFile(state.dataFile, rawDataStr, (e, data) => console.log(e))
 	state.rawData = Buffer.from(rawDataStr, 'utf8')
-
-	calculateMMR(false)
+	calculateMMR()
 	closeEditor()
 }
 
-function loadFile(file) {
+function loadFile() {
+	let file = new Store().get('dataFile')
+	if (!file) return
+
+	// No file previously
 	if (!state.dataFile) $('#empty').hide()
-	state.dataFile = file
-	new Store().set('dataFile', state.dataFile)
-}
 
-
-function setupWindowBar() {
-	$('#min-button').click(event => { win.minimize() })
-	$('#max-button').click(event => { win.maximize() ; toggleMaxRestoreButtons() })
-	$('#restore-button').click(event => { win.unmaximize() ; toggleMaxRestoreButtons() })
-	$('#close-button').click(event => { win.close() })
-
-	toggleMaxRestoreButtons()
-	win.on('maximize', toggleMaxRestoreButtons)
-	win.on('unmaximize', toggleMaxRestoreButtons)
-
-	function toggleMaxRestoreButtons() {
-		if (win.isMaximized()) {
-			$('#max-button').hide()
-			$('#restore-button').css('display', 'flex')
-		} else {
-			$('#max-button').css('display', 'flex')
-			$('#restore-button').hide()
-		}
+	try {
+		state.rawData = fs.readFileSync(file)
+		state.dataFile = file
+		new Store().set('dataFile', state.dataFile)	
+	} catch (err) {
+		console.log(err)
+		state.dataFile = undefined
+		return
 	}
+	state.data = JSON.parse(state.rawData)
+	state.iterations = state.data.mmr.map(it => it.iteration)
+	state.currentIteration = state.iterations[0]
 }
 
-function initContents() {
+function initEditor() {
 	$('#editMMR').hide()
 
 	$(document).keydown(event => {
@@ -97,63 +98,42 @@ function initContents() {
     })
 	$('#save').click(saveAndCloseEditor)
 	$('#cancel').click(closeEditor)
-
-	state.dataFile = new Store().get('dataFile')
-	if (state.dataFile) {
-		$('#empty').hide()
-		calculateMMR(true)
-	} else {
-		$('#empty').show()
-	}
 }
 
-function setupRightClick() {
-	$('#menu-edit').click(() => openEditor())
-	$('#menu-reload').click(() => calculateMMR(true))
-	$('#menu-file').click(() => {
+function initRightClick() {
+	const menu = new Menu('menu', 'c-b-dark-gray-2')
+	menu.addItem(new MenuItem('Edit MMR', openEditor, !!state.dataFile))
+	menu.addItem(new MenuItem('Reload', () => {
+		loadFile()
+		calculateMMR()
+	}, !!state.dataFile))
+	menu.addItem(new MenuItem('MMR file', () => {
 		dialog.showOpenDialog(files => {
 			if (!files) return
-			loadFile(files[0])
-			calculateMMR(true)
-			setupRightClick()
+			state.dataFile = files[0]
+			loadFile()
+			calculateMMR()
+			initRightClick()
 		})
-	})
-	$('#menu-devtools').click(() => win.webContents.openDevTools())
+	}, true))
 
 	if (state.iterations) {
+		menu.addItem(new MenuSeparator())
 		state.iterations.forEach(it => {
-			let el = $('<span/>').text(it)
-			el.click(() => {
+			menu.addItem(new MenuItem(it, () => {
 				state.currentIteration = it
-				calculateMMR(false)
-			})
-			$('#menu-extra').append(el)
+				calculateMMR()
+			}, true))
 		})
-		$('#menu-extra').append($('<span/>').append($('<hr/>').addClass('sep')))
 	}
 
-	document.addEventListener('contextmenu', e => {
-		e.preventDefault()
-		$('#menu').css({
-			display: "block",
-			position: "absolute",
-			top: e.pageY,
-			left: e.pageX,
-		})
-	}, false)
-
-	document.addEventListener('click', e => $('#menu').hide())
+	menu.addItem(new MenuSeparator())
+	menu.addItem(new MenuItem('DevTools', () => win.webContents.openDevTools(), true))
 }
 
-function calculateMMR(readFile) {
+function calculateMMR() {
 	if (!state.dataFile) return
-	if (readFile) {
-		state.rawData = fs.readFileSync(state.dataFile)
-		state.data = JSON.parse(state.rawData)
-		state.iterations = state.data.mmr.map(it => it.iteration)
-		state.currentIteration = state.iterations[0]
-	} else
-		state.data = JSON.parse(state.rawData)
+	state.data = JSON.parse(state.rawData)
 
 	const dataIteration = state.data.mmr.find(it => it.iteration == state.currentIteration)
 
@@ -207,8 +187,8 @@ function calculateMMR(readFile) {
 			curMMR = day[j]
 			if (curMMR > dayMax) dayMax = curMMR
 			if (curMMR < dayMin) dayMin = curMMR
-			if (curMMR > maxMMR) maxMMR = curMMR
-			if (curMMR < minMMR) { minMMR = curMMR; minDate = curDate.getTime() }
+			if (curMMR >= maxMMR) maxMMR = curMMR
+			if (curMMR <= minMMR) { minMMR = curMMR; minDate = curDate.getTime() }
 		}
 	
 		let t = curDate.getTime()

@@ -3,7 +3,7 @@ body {
     overflow: hidden;
 }
 
-#titlebar {
+.winBar {
     display: block;
     position: absolute;
     height: 32px;
@@ -12,7 +12,7 @@ body {
     padding: 4px;
 }
 
-#titlebar #drag-region {
+#winBar-drag-region {
     width: 100%;
     height: 100%;
     -webkit-app-region: drag;
@@ -20,7 +20,7 @@ body {
     grid-template-columns: auto 138px;
 }
 
-#window-title {
+#winBar-title {
     grid-column: 1;
     display: flex;
     align-items: center;
@@ -31,7 +31,7 @@ body {
     line-height: 1.5;
 }
 
-#window-controls {
+#winBar-controls {
     display: grid;
     grid-template-columns: repeat(3, 46px);
     position: absolute;
@@ -43,12 +43,7 @@ body {
     -webkit-app-region: no-drag;
 }
 
-#window-controls #min-button { grid-column: 1; }
-#window-controls #max-button, #window-controls #restore-button { grid-column: 2; }
-#window-controls #close-button { grid-column: 3; }
-#window-controls #restore-button { display: none; }
-
-#window-controls .button {
+.winBar-btn {
     user-select: none;
     cursor: default;
     opacity: 0.8;
@@ -59,11 +54,18 @@ body {
     width: 100%;
     height: 100%;
 }
-#window-controls .button:hover {
+
+.winBar-btn:hover {
     background: rgba(255,255,255,0.2);
     opacity: 1;
 }
-#window-controls #close-button:hover {
+
+#winBar-btn-min { grid-column: 1; }
+#winBar-btn-max, #winBar-btn-restore { grid-column: 2; }
+#winBar-btn-close { grid-column: 3; }
+#winBar-btn-restore { display: none; }
+
+#winBar-btn-close:hover {
     background: #E81123;
 }
 
@@ -77,32 +79,4 @@ body {
     /* margin-right: -50px;
     padding-right: 50px; */
     /* box-sizing: content-box; */
-}
-
-
-#menu {
-    display: none;
-    flex-direction: column;
-    align-items: flex-start;
-    cursor: default;
-    z-index: 100;
-}
-
-#menu span {
-    display: block;
-    padding: 2px 15px;
-    width: 100%;
-}
-
-#menu span:hover {
-    background-color: #666;
-}
-
-.sep {
-    height: 1px;
-    border: 0;
-    border-top: 1px solid #ccc;
-    margin: 5px 0;
-    padding: 0; 
-    width: 80px;
 }

@@ -1,7 +1,7 @@
 {
   "name": "road-to-0k",
   "productName": "Road To 0K",
-  "version": "1.1.5",
+  "version": "1.2.0",
   "description": "Road to 0K - Dota 2",
   "author": "George Kastrinis <george.kast@gmail.com>",
   "license": "MIT",
@@ -9,7 +9,7 @@
     "type": "git",
     "url": "git://github.com/gkastrinis/road-to-0K.git"
   },
-  "main": "main.js",
+  "main": "app.js",
   "scripts": {
     "start": "electron .",
     "pack": "build --dir",

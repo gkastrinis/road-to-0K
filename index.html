@@ -6,48 +6,26 @@
 	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Unica+One"/>
 	<link rel="stylesheet" href="styles.css"/>
 </head>
-
 <body class="c-b-dark-gray c-white">
-	<header id="titlebar" class="c-b-dark-gray">
-		<div id="drag-region">
-			<div id="window-title">Road to 0K</div>
-			<div id="window-controls">
-				<div class="button" id="min-button"><span>&#xE921;</span></div>
-				<div class="button" id="max-button"><span>&#xE922;</span></div>
-				<div class="button" id="restore-button"><span>&#xE923;</span></div>
-				<div class="button" id="close-button"><span>&#xE8BB;</span></div>
-			</div>
-		</div>
-	</header>
-
+	<div id="winBar" class="c-b-dark-gray"></div>
 	<div id="main">
-
-		<div id="menu" class="c-b-dark-gray-2">
-			<span id="menu-edit">Edit MMR</span>
-			<span id="menu-reload">Reload</span>
-			<span id="menu-file">MMR file</span>
-			<span><hr class="sep"></span>
-			<div id="menu-extra"></div>
-			<span id="menu-devtools">DevTools</span>
-		</div>
-
 		<div id="charts">
 			<div class="p-2 mb-3 c-b-dark-gray-2">
 				<div class="row">
 					<div class="col"><a id="dotabuff" target="_blank"><img src="" class="rounded-circle"/></a></div>
 					<div class="col">Games <h2 class="c-light-gray-2" id="gamesTot"><span class="c-green" id="wins"></span>/<span class="c-gold" id="games"></span></h2></div>
 					<div class="col">Win Rate<h2 class="c-gold" id="winRate"></h2></div>
+					<div class="col">MMR<h2 class="c-gold" id="curMMR"></h2></div>
 					<div class="col">Min<h2 class="c-red" id="minMMR"></h2></div>
-					<div class="col">MMR<h2 class="c-blue" id="curMMR"></h2></div>
 					<div class="col">Max<h2 class="c-green" id="maxMMR"></h2></div>
 					<div class="col">Streaks<h2 class="c-gold"><span class="c-red mr-2" id="maxLoseStreak"></span>vs<span class="c-green ml-2" id="maxWinStreak"></span></h2></div>
 				</div>
 			</div>
+			<div id="empty" class="c-purple-2 text-center">You have to select an MMR data file!</div>
 			<div id="chart1"></div>
 			<div id="chart2"></div>
 			<div id="chart3"></div>
 			<div id="chart4"></div>
-			<div id="empty" class="c-purple-2 text-center">You have to select an MMR data file!</div>
 		</div>
 
 		<div id="editMMR">
@@ -57,7 +35,6 @@
 				<a href="#" id="cancel" class="btn-lg btn-danger">Cancel</a>
 			</div>
 		</div>
-
 	</div>
 </body>
 
