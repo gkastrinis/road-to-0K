@@ -221,6 +221,7 @@ function calculateMMR() {
 	$('#winRate').text(Math.round(100 * (winSum / mmrGames)) + "%")
 	$('#minMMR').text(minMMR)
 	$('#curMMR').text(curMMR)
+	$('#curMMR').addClass(((curMMR == maxMMR) ? 'c-green' : (curMMR == minMMR ? 'c-red' : 'c-gold')))
 	$('#maxMMR').text(maxMMR)
 	$('#maxLoseStreak').text("-"+maxLoseStreak)
 	$('#maxWinStreak').text("+"+maxWinStreak)
