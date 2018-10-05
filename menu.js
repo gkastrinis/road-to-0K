@@ -32,7 +32,7 @@ class Menu {
 }
 
 class MenuItem {
-	constructor(text, callBack, isEnabled) {
+    constructor(text, callBack, isEnabled) {
 		this._text = text
 		this._callBack = callBack
         this._isEnabled = isEnabled

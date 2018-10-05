@@ -14,11 +14,19 @@ body { font-family: 'Unica One'; }
     font-size: 2em;
 }
 
-#editor { 
-    position: relative;
-    top: 0;
-    right: 0;
-    width: 100%;
+#editMMR { display: none; }
+
+#editMMR > div {
+    display: inline-block;
+    vertical-align: top;
 }
 
-.btn-lg { margin: 10px 5px 10px 5px; }
+#editMMR > div:first-child > div > span {
+    display: inline-block;
+    width: 120px;
+    text-align: center;
+}
+
+#editMMR > div:first-child > div > input { width: 60vw; }
+
+#editMMR > div:nth-child(2) > a { margin: 10px 5px 10px 5px; }

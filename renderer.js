@@ -1,403 +1,398 @@
-const {remote} = require('electron')
-const {dialog} = require('electron').remote
-const Highcharts = require('highcharts-more-node')
-const fs = require('fs')
-const Store = require('electron-store')
-const WinBar = require('./winbar.js')
-const {Menu, MenuItem, MenuSeparator} = require('./menu.js')
+const {remote} = require('electron');
+const {dialog} = require('electron').remote;
+const Highcharts = require('highcharts-more-node');
+const fs = require('fs');
+const Store = require('electron-store');
+const WinBar = require('./winbar.js');
+const {Menu, MenuItem, MenuSeparator} = require('./menu.js');
 
-const win = remote.getCurrentWindow()
-const winBar = new WinBar(win, 'winBar', 'Road to 0K')
+const win = remote.getCurrentWindow();
+const winBar = new WinBar(win, 'winBar', 'Road to 0K');
+const state = {dataFile: new Store().get('dataFile')};
 
-const editor = ace.edit('editor')
-editor.setTheme('ace/theme/monokai')
-editor.session.setMode('ace/mode/json')
-editor.setFontSize(14)
+(() => {
+	if (state.dataFile) {
+		loadFile();
+		calculateMMR();
+		redraw();
+	}
 
-let state = { dataFile: new Store().get('dataFile') }
-if (state.dataFile) {
-    loadFile()
-    calculateMMR()
-    redraw()
-}
-initEditor()
-initRightClick()
-initPurge()
+	////// Editor //////
+	$(document).keydown(event => {
+		let editorVisible = $('#editMMR').is(':visible');
+		// Ctrl + S
+		if (editorVisible && (event.ctrlKey || event.metaKey) && event.which === 83) {
+			event.preventDefault();
+			saveAndCloseEditor();
+			return false;
+		}
+		// Esc
+		else if (event.which === 27) {
+			event.preventDefault();
+			if (editorVisible) closeEditor();
+			else if ($('#purge').is(':visible')) {
+				$('#purge').hide();
+				$('#charts').show();
+			}
+			return false;
+		}
+	});
+	$('#save').click(saveAndCloseEditor);
+	$('#cancel').click(closeEditor);
 
+	////// Right Click Menu //////
+	(function f() {
+		const menu = new Menu('menu', 'c-b-dark-gray-2');
+		menu.addItem(new MenuItem('Edit MMR', openEditor, !!state.dataFile));
+		menu.addItem(new MenuItem('Reload', () => {
+			loadFile();
+			calculateMMR();
+		}, !!state.dataFile));
+		menu.addItem(new MenuItem('MMR file', () => {
+			dialog.showOpenDialog(files => {
+				if (!files) return;
+				state.dataFile = files[0];
+				new Store().set('dataFile', state.dataFile);
+				loadFile();
+				calculateMMR();
+				f();
+			})
+		}, true));
+
+		if (state.seasons) {
+			menu.addItem(new MenuSeparator(null, null, null));
+			state.seasons.forEach(it => {
+				menu.addItem(new MenuItem(it, () => {
+					state.currentSeason = it;
+					calculateMMR();
+				}, true))
+			});
+		}
+
+		menu.addItem(new MenuSeparator(null, null, null));
+		menu.addItem(new MenuItem('Purge YT Videos', () => {
+			$('#charts').hide();
+			$('#purge').show();
+		}, true));
+		menu.addItem(new MenuItem('DevTools', () => win.webContents.openDevTools(), true))
+	})();
+
+	////// Purge YT Videos //////
+	let css = {display: "flex", flexWrap: "wrap", justifyContent: "center"};
+	$('#purge').hide().append($('<div/>').css(css)).append($('<div/>').css(css));
+	['9Szj-CloJiI', 'KWPWDWyzFso', '3KbAMEnsRLg', '_NmktQ7xBRc', '7KQ_ysnhpnI', 'Asv6OODaxSI', '_mLHjI7teys', 'AIxIB57PTgk', 'EKHk6Ba_dwA', 'dVGBk96Pnrg'].forEach(it => {
+		$('#purge > div:nth-child(1)').append($('<iframe width="560" height="315" frameborder="0"/>').attr('src', 'https://www.youtube.com/embed/' + it + '?rel=0'))
+	});
+	['u0rYxCVRrUM', 'PVpsmxuZJGU', 'YgTu7bnTU3E', 'RjCpVfaO1s8', 'Z_rFHfWlEuM', 'M9AKuHy4dpo'].forEach(it => {
+		$('#purge > div:nth-child(2)').append($('<iframe width="560" height="315" frameborder="0"/>').attr('src', 'https://www.youtube.com/embed/' + it + '?rel=0'))
+	})
+})();
 
 function redraw() {
-    let {width, height} = win.getBounds()
-    win.setSize(width + 1, height + 1)
-    setTimeout(() => win.setSize(width, height), 1000)
+	let {width, height} = win.getBounds();
+	win.setSize(width + 1, height + 1);
+	setTimeout(() => win.setSize(width, height), 1000);
 }
 
 function openEditor() {
-    winBar.tempTitle(" - " + new Date().toLocaleDateString())
-    $('#charts').hide()
-    $('#editMMR').show()
-    editor.setValue(state.rawData.toString('utf8'), -1)
-    let {height} = win.getBounds()
-    $('#editor').height(height - 100)
+	winBar.tempTitle(" - " + new Date().toDateString());
+	$('#charts').hide();
+	$('#editMMR').show();
 
-    redraw()
+	let currDate = new Date(state.currentSeason.startDate);
+	currDate.setHours(0, 0, 0, 0);
+	let today = new Date();
+	today.setHours(0, 0, 0, 0);
+	let i = 0;
+	$('#editMMR > div:first-child').empty();
+	while (currDate.getTime() <= today.getTime()) {
+		console.log(currDate);
+		let games = state.currentSeason.games[i];
+		console.log(games);
+		$('#editMMR > div:first-child').prepend($('<div/>')
+			.append($('<span/>').text(currDate.toDateString()))
+			.append($('<input/>').val(games ? games.join(',') : '')));
+		currDate.setDate(currDate.getDate() + 1);
+		i++;
+	}
+	$('#editMMR > div:first-child > div:first-child > input').focus();
+
+	redraw()
 }
 
 function closeEditor() {
-    winBar.restoreTitle()
-    $('#editMMR').hide()
-    $('#charts').show()
+	winBar.restoreTitle();
+	$('#editMMR').hide();
+	$('#charts').show();
 
-    redraw()
+	redraw()
 }
 
 function saveAndCloseEditor() {
-    let rawDataStr = editor.getValue()
-    fs.writeFile(state.dataFile, rawDataStr, (e, data) => console.log(e))
-    state.rawData = Buffer.from(rawDataStr, 'utf8')
-    calculateMMR()
-    closeEditor()
+	let games = [];
+	$('#editMMR > div:first-child input').each((i, element) => {
+		games.unshift($(element).val() ? $(element).val().split(',').map(it => parseInt(it)) : []);
+	});
+	state.currentSeason.games = games;
+	// fs.writeFile(state.dataFile, JSON.stringify(state.data), (e) => console.log(e));
+	fs.writeFile(state.dataFile, JSON.stringify(state.data, null, 2), (e) => console.log(e));
+	calculateMMR();
+	closeEditor();
 }
 
 function loadFile() {
-    try {
-        state.rawData = fs.readFileSync(state.dataFile)
-        $('#empty').hide()
-    } catch (err) {
-        console.log(err)
-        state.dataFile = undefined
-        return
-    }
-    state.data = JSON.parse(state.rawData)
-    state.iterations = state.data.mmr.map(it => it.iteration)
-    state.currentIteration = state.iterations[0]
+	try {
+		state.rawData = fs.readFileSync(state.dataFile);
+		$('#empty').hide();
+	} catch (err) {
+		console.log(err);
+		state.dataFile = undefined;
+		return;
+	}
+	state.data = JSON.parse(state.rawData);
+	state.seasons = state.data.seasons.map(it => it.name);
+	state.currentSeason = state.data.seasons.find(it => it.name === state.seasons[0]);
 }
 
-function initEditor() {
-    $('#editMMR').hide()
-    $('#purge').hide()
-
-    $(document).keydown(event => {
-        let editorVisible = $('#editMMR').is(':visible')
-        // Ctrl + S
-        if (editorVisible && (event.ctrlKey || event.metaKey) && event.which == 83) {
-            event.preventDefault()
-            saveAndCloseEditor()
-            return false
-        }
-        // Esc
-        else if (event.which == 27) {
-            event.preventDefault()
-            if (editorVisible) closeEditor()
-            else if ($('#purge').is(':visible')) {
-                $('#purge').hide()
-                $('#charts').show()
-            }
-            return false
-        }
-    })
-    $('#save').click(saveAndCloseEditor)
-    $('#cancel').click(closeEditor)
-}
-
-function initRightClick() {
-    const menu = new Menu('menu', 'c-b-dark-gray-2')
-    menu.addItem(new MenuItem('Edit MMR', openEditor, !!state.dataFile))
-    menu.addItem(new MenuItem('Reload', () => {
-        loadFile()
-        calculateMMR()
-    }, !!state.dataFile))
-    menu.addItem(new MenuItem('MMR file', () => {
-        dialog.showOpenDialog(files => {
-            if (!files) return
-            state.dataFile = files[0]
-            new Store().set('dataFile', state.dataFile)
-            loadFile()
-            calculateMMR()
-            initRightClick()
-        })
-    }, true))
-
-    if (state.iterations) {
-        menu.addItem(new MenuSeparator())
-        state.iterations.forEach(it => {
-            menu.addItem(new MenuItem(it, () => {
-                state.currentIteration = it
-                calculateMMR()
-            }, true))
-        })
-    }
-
-    menu.addItem(new MenuSeparator())
-    menu.addItem(new MenuItem('Purge', () => {
-        $('#charts').hide()
-        $('#purge').show()
-    }, true))
-    menu.addItem(new MenuItem('DevTools', () => win.webContents.openDevTools(), true))
-}
-
-function initPurge() {
-    $('#purge').append($('<div/>')).append($('<div/>'))
-
-    let basics = ['9Szj-CloJiI', 'KWPWDWyzFso', '3KbAMEnsRLg', '_NmktQ7xBRc', '7KQ_ysnhpnI', 'Asv6OODaxSI', '_mLHjI7teys', 'AIxIB57PTgk', 'EKHk6Ba_dwA', 'dVGBk96Pnrg']
-    basics.forEach(it => {
-        $('#purge > div:nth-child(1)').append($('<iframe width="560" height="315" frameborder="0"/>').attr('src', 'https://www.youtube.com/embed/' + it + '?rel=0'))
-    })
-    let learn = ['u0rYxCVRrUM', 'PVpsmxuZJGU', 'YgTu7bnTU3E', 'RjCpVfaO1s8', 'Z_rFHfWlEuM', 'M9AKuHy4dpo']
-    learn.forEach(it => {
-        $('#purge > div:nth-child(2)').append($('<iframe width="560" height="315" frameborder="0"/>').attr('src', 'https://www.youtube.com/embed/' + it + '?rel=0'))
-    })
-}
 
 function calculateMMR() {
-    if (!state.dataFile) return
-    state.data = JSON.parse(state.rawData)
+	if (!state.dataFile) return;
 
-    const dataIteration = state.data.mmr.find(it => it.iteration == state.currentIteration)
+	let dailyMMR = [];
+	let dailyMMRRange = [];
+	let dailyMMRWins = [];
+	let dailyMMRLosses = [];
+	let dailyMMRResult = [];
+	let MMRWinSum = [];
+	let MMRLossSum = [];
+	let MMRSumResult = [];
+	let MMRSumDeriv = [];
+	let currMMR = 0;
+	let prevMMR;
+	let minMMR = 10000;
+	let maxMMR = 0;
+	let mmrGames = 0;
+	let winSum = 0, lossSum = 0;
+	let currDate = new Date(state.currentSeason.startDate), minDate;
+	let currWinStreak = 0, currLoseStreak = 0, maxWinStreak = 0, maxLoseStreak = 0;
 
-    let dailyMMR = []
-    let dailyMMRRange = []
-    let dailyMMRWins = []
-    let dailyMMRLosses = []
-    let dailyMMRResult = []
-    let MMRWinSum = []
-    let MMRLossSum = []
-    let MMRSumResult = []
-    let MMRSumDeriv = []
-    let curMMR = 0
-    let minMMR = 10000
-    let maxMMR = 0
-    let mmrGames = 0
+	state.currentSeason.games.forEach((day, i) => {
+		let win = 0, loss = 0;
+		let dayMin = currMMR, dayMax = currMMR;
+		if (day.length > 0) dayMin = dayMax = day[0];
 
-    const MMR = dataIteration.games
+		day.forEach((mmr, j) => {
+			let diff = mmr - currMMR;
+			(diff > 0) ? win++ : loss++;
 
-    let winSum = 0, lossSum = 0
-    let curDate = new Date(dataIteration.startDate), minDate
-    let currWinStreak = 0, currLoseStreak = 0, maxWinStreak = 0, maxLoseStreak = 0
-    let prevMMR
-    for (let i = 0; i < MMR.length; i++) {
-        let day = MMR[i]
-        let win = 0, loss = 0
-        let dayMin = curMMR, dayMax = curMMR
-        if (day.length > 0) dayMin = dayMax = day[0]
+			if (currLoseStreak !== 0) {
+				if (diff < 0) currLoseStreak++;
+				else {
+					currLoseStreak = 0;
+					currWinStreak = 1;
+				}
+				if (maxLoseStreak < currLoseStreak) maxLoseStreak = currLoseStreak;
+			}
+			else {
+				if (diff > 0) currWinStreak++;
+				else {
+					currWinStreak = 0;
+					currLoseStreak = 1;
+				}
+				if (maxWinStreak < currWinStreak) maxWinStreak = currWinStreak;
+			}
 
-        for (let j = 0; j < day.length; j++) {
-            let diff = day[j] - curMMR;
-            (diff > 0) ? win++ : loss++
+			currMMR = mmr;
+			if (currMMR > dayMax) dayMax = currMMR;
+			if (currMMR < dayMin) dayMin = currMMR;
+			if (currMMR >= maxMMR) maxMMR = currMMR;
+			if (currMMR <= minMMR) {
+				minMMR = currMMR;
+				minDate = currDate.getTime();
+			}
+		});
+		let t = currDate.getTime();
+		currDate.setDate(currDate.getDate() + 1);
 
-            if (currLoseStreak != 0) {
-                if (diff < 0) currLoseStreak++
-                else {
-                    currLoseStreak = 0
-                    currWinStreak = 1
-                }
-                if (maxLoseStreak < currLoseStreak) maxLoseStreak = currLoseStreak
-            }
-            else {
-                if (diff > 0) currWinStreak++
-                else {
-                    currWinStreak = 0
-                    currLoseStreak = 1
-                }
-                if (maxWinStreak < currWinStreak) maxWinStreak = currWinStreak
-            }
+		dailyMMR[i] = [t, currMMR];
+		dailyMMRRange[i] = [t, dayMin, dayMax];
+		dailyMMRWins[i] = [t, win];
+		dailyMMRLosses[i] = [t, loss * -1];
+		dailyMMRResult[i] = [t, win - loss];
+		mmrGames += day.length;
+		winSum += win;
+		lossSum += loss;
+		MMRWinSum[i] = [t, winSum];
+		MMRLossSum[i] = [t, -lossSum];
+		MMRSumResult[i] = [t, winSum - lossSum];
 
-            curMMR = day[j]
-            if (curMMR > dayMax) dayMax = curMMR
-            if (curMMR < dayMin) dayMin = curMMR
-            if (curMMR >= maxMMR) maxMMR = curMMR
-            if (curMMR <= minMMR) {
-                minMMR = curMMR;
-                minDate = curDate.getTime()
-            }
-        }
+		MMRSumDeriv[i] = [t, prevMMR ? (winSum - lossSum) - prevMMR : 0];
+		prevMMR = winSum - lossSum;
+	});
 
-        let t = curDate.getTime()
-        curDate.setDate(curDate.getDate() + 1)
+	$('#dotabuff').attr('href', state.data.profile);
+	$('#dotabuff > img').attr('src', state.data.avatar);
+	$('#games').text(mmrGames);
+	$('#wins').text(winSum);
+	$('#winRate').text(Math.round(100 * (winSum / mmrGames)) + "%");
+	$('#minMMR').text(minMMR);
+	$('#currMMR').text(currMMR).addClass(((currMMR === maxMMR) ? 'c-green' : (currMMR === minMMR ? 'c-red' : 'c-gold')));
+	$('#maxMMR').text(maxMMR);
+	$('#maxLoseStreak').text("-" + maxLoseStreak);
+	$('#maxWinStreak').text("+" + maxWinStreak);
 
-        dailyMMR[i] = [t, curMMR]
-        dailyMMRRange[i] = [t, dayMin, dayMax]
-        dailyMMRWins[i] = [t, win]
-        dailyMMRLosses[i] = [t, loss * -1]
-        dailyMMRResult[i] = [t, win - loss]
-        mmrGames += day.length
-        winSum += win
-        lossSum += loss
-        MMRWinSum[i] = [t, winSum]
-        MMRLossSum[i] = [t, -lossSum]
-        MMRSumResult[i] = [t, winSum - lossSum]
+	function gcolor(cssClass) {
+		let dummy = $('<div/>').addClass(cssClass).appendTo("body");
+		let color = $(dummy).css('color');
+		$(dummy).remove();
+		return color
+	}
 
-        MMRSumDeriv[i] = [t, prevMMR ? (winSum - lossSum) - prevMMR : 0]
-        prevMMR = winSum - lossSum
-        //{name:t, x:t,y:v, color: cLost}
-    }
+	let cBack = gcolor('c-dark-gray');
+	let cBase = gcolor('c-white');
+	let cDisabled = gcolor('c-light-gray-2');
+	let cLines = gcolor('c-light-gray-2');
+	let cMMR = gcolor('c-blue');
+	let cMMRRange = gcolor('c-light-blue');
+	let cPlot = gcolor('c-light-blue');
+	let cWon = gcolor('c-green');
+	let cLost = gcolor('c-red');
+	let cNet = gcolor('c-gold');
 
-    $('#dotabuff').attr('href', state.data.profile)
-    $('#dotabuff > img').attr('src', state.data.avatar)
-    //var minMMR = Math.min.apply(null, MMR);
-    //var maxMMR = Math.max(...MMR);
-    //var avgMMR = Math.round(MMR.reduce(function(p,c,i){return p+(c-p)/(i+1)}, 0));
-    $('#games').text(mmrGames)
-    $('#wins').text(winSum)
-    $('#winRate').text(Math.round(100 * (winSum / mmrGames)) + "%")
-    $('#minMMR').text(minMMR)
-    $('#curMMR').text(curMMR)
-    $('#curMMR').addClass(((curMMR == maxMMR) ? 'c-green' : (curMMR == minMMR ? 'c-red' : 'c-gold')))
-    $('#maxMMR').text(maxMMR)
-    $('#maxLoseStreak').text("-" + maxLoseStreak)
-    $('#maxWinStreak').text("+" + maxWinStreak)
+	Highcharts.setOptions({
+		lang: {decimalPoint: '.', thousandsSep: ','},
+		chart: {
+			style: {fontFamily: '\'Unica One\''},
+			backgroundColor: cBack,
+			type: 'areaspline',
+		},
+		//title: { style: { color: cBase, fontSize: '20px', textTransform: 'uppercase' } },
+		xAxis: {
+			lineColor: cLines,
+			tickColor: cLines,
+			// labels: { formatter: function() { return 'Day '+ Highcharts.numberFormat(this.value, 0) ''; } },
+			labels: {formatter: () => ''},
+			type: 'datetime'
+		},
+		yAxis: {
+			title: {text: ''},
+			gridLineColor: cLines,
+			lineColor: cLines,
+			tickColor: cLines,
+			labels: {
+				style: {color: cBase, fontSize: '20px'},
+				formatter: function () {
+					return Highcharts.numberFormat(this.value, 0)
+				}
+			},
+		},
+		tooltip: {
+			backgroundColor: 'rgba(17, 17, 17, 0.85)',
+			style: {color: cBase, fontSize: '20px'},
+			shared: true,
+			//valuePrefix: '$',
+			headerFormat: '<b>{point.key}</b><br>',
+			xDateFormat: '%b %d, %Y'
+		},
+		plotOptions: {
+			series: {marker: {enabled: false}},
+			areaspline: {fillOpacity: 0.5}
+		},
+		legend: {
+			itemStyle: {color: cBase, fontSize: '20px'},
+			itemHoverStyle: {color: cBase},
+			itemHiddenStyle: {color: cDisabled},
+		},
+		credits: {enabled: false},
+	});
 
-    function gcolor(cssClass) {
-        let dummy = $('<div/>').addClass(cssClass).appendTo("body")
-        let color = $(dummy).css('color')
-        $(dummy).remove()
-        return color
-    }
+	// Plot Lines
+	function plot(date, color, text) {
+		return {
+			value: date,
+			color: color,
+			width: 2,
+			//zIndex: 4,
+			dashStyle: "shortdash",
+			label: {
+				text: text,
+				align: "left",
+				rotation: 90,
+				style: {
+					fontSize: "20px",
+					color: color
+				}
+			}
+		}
+	}
 
-    let cBack = gcolor('c-dark-gray')
-    let cBase = gcolor('c-white')
-    let cDisabled = gcolor('c-light-gray-2')
-    let cLines = gcolor('c-light-gray-2')
-    let cMMR = gcolor('c-blue')
-    let cMMRRange = gcolor('c-light-blue')
-    let cPlot = gcolor('c-light-blue')
-    let cWon = gcolor('c-green')
-    let cLost = gcolor('c-red')
-    let cNet = gcolor('c-gold')
+	let plotLines = [plot(minDate, cLost, "Lowest")];
+	state.currentSeason.plotlines.forEach(it => plotLines.push(plot(new Date(it[0]).getTime(), cPlot, it[1])));
 
-    Highcharts.setOptions({
-        lang: {decimalPoint: '.', thousandsSep: ','},
-        chart: {
-            style: {fontFamily: '\'Unica One\''},
-            backgroundColor: cBack,
-            type: 'areaspline',
-        },
-        //title: { style: { color: cBase, fontSize: '20px', textTransform: 'uppercase' } },
-        xAxis: {
-            lineColor: cLines,
-            tickColor: cLines,
-            // labels: { formatter: function() { return 'Day '+ Highcharts.numberFormat(this.value, 0) ''; } },
-            labels: {formatter: () => ''},
-            type: 'datetime'
-        },
-        yAxis: {
-            title: {text: ''},
-            gridLineColor: cLines,
-            lineColor: cLines,
-            tickColor: cLines,
-            labels: {
-                style: {color: cBase, fontSize: '20px'},
-                formatter: function () {
-                    return Highcharts.numberFormat(this.value, 0)
-                }
-            },
-        },
-        tooltip: {
-            backgroundColor: 'rgba(17, 17, 17, 0.85)',
-            style: {color: cBase, fontSize: '20px'},
-            shared: true,
-            //valuePrefix: '$',
-            headerFormat: '<b>{point.key}</b><br>',
-            xDateFormat: '%b %d, %Y'
-        },
-        plotOptions: {
-            series: {marker: {enabled: false}},
-            areaspline: {fillOpacity: 0.5}
-        },
-        legend: {
-            itemStyle: {color: cBase, fontSize: '20px'},
-            itemHoverStyle: {color: cBase},
-            itemHiddenStyle: {color: cDisabled},
-        },
-        credits: {enabled: false},
-    })
-
-    // Plot Lines
-    function plot(date, color, text) {
-        return {
-            value: date,
-            color: color,
-            width: 2,
-            //zIndex: 4,
-            dashStyle: "shortdash",
-            label: {
-                text: text,
-                align: "left",
-                rotation: 90,
-                style: {
-                    fontSize: "20px",
-                    color: color
-                }
-            }
-        }
-    }
-
-    let plotLines = [plot(minDate, cLost, "Lowest")]
-    dataIteration.plotlines.forEach(it => plotLines.push(plot(new Date(it[0]).getTime(), cPlot, it[1])))
-
-    new Highcharts.Chart({
-        chart: {renderTo: 'chart1'},
-        title: {text: ''},
-        xAxis: {plotLines: plotLines},
-        yAxis: {min: minMMR},
-        series: [{
-            name: "MMR",
-            color: cMMR,
-            zIndex: 0,
-            data: dailyMMR,
-        }, {
-            //linkedTo: ':previous',
-            name: 'Range',
-            color: cMMRRange,
-            fillOpacity: 0.6,
-            type: 'areasplinerange',
-            lineWidth: 0,
-            zIndex: 1,
-            data: dailyMMRRange,
-        }]
-    })
-    new Highcharts.Chart({
-        chart: {renderTo: 'chart2'},
-        title: {text: ''},
-        series: [{
-            name: "Won",
-            color: cWon,
-            data: dailyMMRWins,
-        }, {
-            name: "Lost",
-            color: cLost,
-            data: dailyMMRLosses,
-        }, {
-            name: "Net",
-            color: cNet,
-            type: 'spline',
-            data: dailyMMRResult,
-        }]
-    })
-    new Highcharts.Chart({
-        chart: {renderTo: 'chart3'},
-        title: {text: ''},
-        series: [{
-            name: "Won",
-            color: cWon,
-            data: MMRWinSum,
-        }, {
-            name: "Lost",
-            color: cLost,
-            data: MMRLossSum,
-        }, {
-            name: "Net",
-            color: cNet,
-            type: 'spline',
-            data: MMRSumResult,
-        }]
-    })
-    new Highcharts.Chart({
-        chart: {renderTo: 'chart4'},
-        title: {text: ''},
-        series: [{
-            name: "Net 1st Derivative",
-            color: cNet,
-            data: MMRSumDeriv,
-        }]
-    })
+	new Highcharts.Chart({
+		chart: {renderTo: 'chart1'},
+		title: {text: ''},
+		xAxis: {plotLines: plotLines},
+		yAxis: {min: minMMR},
+		series: [{
+			name: "MMR",
+			color: cMMR,
+			zIndex: 0,
+			data: dailyMMR,
+		}, {
+			//linkedTo: ':previous',
+			name: 'Range',
+			color: cMMRRange,
+			fillOpacity: 0.6,
+			type: 'areasplinerange',
+			lineWidth: 0,
+			zIndex: 1,
+			data: dailyMMRRange,
+		}]
+	});
+	new Highcharts.Chart({
+		chart: {renderTo: 'chart2'},
+		title: {text: ''},
+		series: [{
+			name: "Won",
+			color: cWon,
+			data: dailyMMRWins,
+		}, {
+			name: "Lost",
+			color: cLost,
+			data: dailyMMRLosses,
+		}, {
+			name: "Net",
+			color: cNet,
+			type: 'spline',
+			data: dailyMMRResult,
+		}]
+	});
+	new Highcharts.Chart({
+		chart: {renderTo: 'chart3'},
+		title: {text: ''},
+		series: [{
+			name: "Won",
+			color: cWon,
+			data: MMRWinSum,
+		}, {
+			name: "Lost",
+			color: cLost,
+			data: MMRLossSum,
+		}, {
+			name: "Net",
+			color: cNet,
+			type: 'spline',
+			data: MMRSumResult,
+		}]
+	});
+	new Highcharts.Chart({
+		chart: {renderTo: 'chart4'},
+		title: {text: ''},
+		series: [{
+			name: "Net 1st Derivative",
+			color: cNet,
+			data: MMRSumDeriv,
+		}]
+	});
 }
