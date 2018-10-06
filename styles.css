@@ -21,12 +21,30 @@ body { font-family: 'Unica One'; }
     vertical-align: top;
 }
 
-#editMMR > div:first-child > div > span {
+#editMMR > div:nth-child(1) > div > span {
     display: inline-block;
     width: 120px;
     text-align: center;
 }
 
-#editMMR > div:first-child > div > input { width: 60vw; }
+#editMMR > div:nth-child(1) > div > input { width: 40vw; }
 
-#editMMR > div:nth-child(2) > a { margin: 10px 5px 10px 5px; }
+#editMMR > div:nth-child(2) > input {
+    display: block;
+    width: 30vw;
+}
+
+#editMMR > div:nth-child(2) > a {
+	display: block;
+	margin-top: 5px;
+	text-align: center;
+}
+
+#editMMR > div:nth-child(2) > a:hover {
+	text-decoration: none;
+}
+
+#editMMR > div:nth-child(3) > a {
+    margin: 10px 5px 10px 5px;
+    display: inline-block;
+}

@@ -104,18 +104,22 @@ function openEditor() {
 	let today = new Date();
 	today.setHours(0, 0, 0, 0);
 	let i = 0;
-	$('#editMMR > div:first-child').empty();
+	let element = $('#editMMR > div:nth-child(1)')
+	element.empty();
 	while (currDate.getTime() <= today.getTime()) {
-		console.log(currDate);
 		let games = state.currentSeason.games[i];
-		console.log(games);
-		$('#editMMR > div:first-child').prepend($('<div/>')
+		element.prepend($('<div/>')
 			.append($('<span/>').text(currDate.toDateString()))
 			.append($('<input/>').val(games ? games.join(',') : '')));
 		currDate.setDate(currDate.getDate() + 1);
 		i++;
 	}
-	$('#editMMR > div:first-child > div:first-child > input').focus();
+	$('#editMMR > div:nth-child(1) > div:first-child > input').focus();
+
+	element = $('#editMMR > div:nth-child(2)');
+	element.empty();
+	state.currentSeason.plotlines.forEach(it => element.prepend($('<input/>').val(it)));
+	element.append($('<a href="#" id="add" class="btn-lg btn-secondary">+</a>').click(() => element.prepend($('<input/>'))));
 
 	redraw()
 }
@@ -130,10 +134,16 @@ function closeEditor() {
 
 function saveAndCloseEditor() {
 	let games = [];
-	$('#editMMR > div:first-child input').each((i, element) => {
+	$('#editMMR > div:nth-child(1) input').each((i, element) => {
 		games.unshift($(element).val() ? $(element).val().split(',').map(it => parseInt(it)) : []);
 	});
 	state.currentSeason.games = games;
+	let plotlines = [];
+	$('#editMMR > div:nth-child(2) input').each((i, element) => {
+		let val = $(element).val().trim();
+		if (val) plotlines.unshift(val.split(','));
+	});
+	state.currentSeason.plotlines = plotlines;
 	// fs.writeFile(state.dataFile, JSON.stringify(state.data), (e) => console.log(e));
 	fs.writeFile(state.dataFile, JSON.stringify(state.data, null, 2), (e) => console.log(e));
 	calculateMMR();
@@ -181,7 +191,7 @@ function calculateMMR() {
 		let dayMin = currMMR, dayMax = currMMR;
 		if (day.length > 0) dayMin = dayMax = day[0];
 
-		day.forEach((mmr, j) => {
+		day.forEach(mmr => {
 			let diff = mmr - currMMR;
 			(diff > 0) ? win++ : loss++;
 
