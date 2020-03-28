@@ -4,6 +4,8 @@
 
 body { font-family: 'Unica One'; }
 
+iframe { border: 0; }
+
 .col > h2 { font-weight: bold; }
 
 #dotabuff > img { height: 64px; }
@@ -47,4 +49,9 @@ body { font-family: 'Unica One'; }
 #editMMR > div:nth-child(3) > a {
     margin: 10px 5px 10px 5px;
     display: inline-block;
+}
+
+#purgeControls {
+    padding-top: 20px;
+    text-align: center;
 }

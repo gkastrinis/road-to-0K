@@ -59,11 +59,11 @@ const state = {dataFile: new Store().get('dataFile')};
 			})
 		}, true));
 
-		if (state.seasons) {
+		if (state.seasonNames) {
 			menu.addItem(new MenuSeparator(null, null, null));
-			state.seasons.forEach(it => {
-				menu.addItem(new MenuItem(it, () => {
-					state.currentSeason = it;
+			state.seasonNames.forEach(currSeasonName => {
+				menu.addItem(new MenuItem(currSeasonName, () => {
+					state.currentSeason = state.data.seasons.find(it => it.name === currSeasonName);
 					calculateMMR();
 				}, true))
 			});
@@ -79,13 +79,19 @@ const state = {dataFile: new Store().get('dataFile')};
 
 	////// Purge YT Videos //////
 	let css = {display: "flex", flexWrap: "wrap", justifyContent: "center"};
-	$('#purge').hide().append($('<div/>').css(css)).append($('<div/>').css(css));
-	['9Szj-CloJiI', 'KWPWDWyzFso', '3KbAMEnsRLg', '_NmktQ7xBRc', '7KQ_ysnhpnI', 'Asv6OODaxSI', '_mLHjI7teys', 'AIxIB57PTgk', 'EKHk6Ba_dwA', 'dVGBk96Pnrg'].forEach(it => {
-		$('#purge > div:nth-child(1)').append($('<iframe width="560" height="315" frameborder="0"/>').attr('src', 'https://www.youtube.com/embed/' + it + '?rel=0'))
+	$('#purge').hide().prepend($('<div/>').css(css));//.append($('<div/>').css(css)).append($('<div/>').css(css));
+	$('#purge > div:nth-child(1)').append($('<iframe width="1280" height="720" src="https://www.youtube.com/embed/videoseries?list=PLx5AyE42HmyXadgEkkIK51Ph8ltBBgDX2"/>'));
+	// ['9Szj-CloJiI', 'KWPWDWyzFso', '3KbAMEnsRLg', '_NmktQ7xBRc', '7KQ_ysnhpnI', 'Asv6OODaxSI', '_mLHjI7teys', 'AIxIB57PTgk', 'EKHk6Ba_dwA', 'dVGBk96Pnrg'].forEach(it => {
+	// 	$('#purge > div:nth-child(2)').append($('<iframe width="560" height="315"/>').attr('src', 'https://www.youtube.com/embed/' + it + '?rel=0'))
+	// });
+	// ['u0rYxCVRrUM', 'PVpsmxuZJGU', 'YgTu7bnTU3E', 'RjCpVfaO1s8', 'Z_rFHfWlEuM', 'M9AKuHy4dpo', 'S20bc4Tn6Ck'].forEach(it => {
+	// 	$('#purge > div:nth-child(3)').append($('<iframe width="560" height="315"/>').attr('src', 'https://www.youtube.com/embed/' + it + '?rel=0'))
+	// })
+	$('#back').click(() => {
+		$('#purge').hide();
+		$('#charts').show();
+		redraw()
 	});
-	['u0rYxCVRrUM', 'PVpsmxuZJGU', 'YgTu7bnTU3E', 'RjCpVfaO1s8', 'Z_rFHfWlEuM', 'M9AKuHy4dpo'].forEach(it => {
-		$('#purge > div:nth-child(2)').append($('<iframe width="560" height="315" frameborder="0"/>').attr('src', 'https://www.youtube.com/embed/' + it + '?rel=0'))
-	})
 })();
 
 function redraw() {
@@ -104,7 +110,7 @@ function openEditor() {
 	let today = new Date();
 	today.setHours(0, 0, 0, 0);
 	let i = 0;
-	let element = $('#editMMR > div:nth-child(1)')
+	let element = $('#editMMR > div:nth-child(1)');
 	element.empty();
 	while (currDate.getTime() <= today.getTime()) {
 		let games = state.currentSeason.games[i];
@@ -160,8 +166,8 @@ function loadFile() {
 		return;
 	}
 	state.data = JSON.parse(state.rawData);
-	state.seasons = state.data.seasons.map(it => it.name);
-	state.currentSeason = state.data.seasons.find(it => it.name === state.seasons[0]);
+	state.seasonNames = state.data.seasons.map(it => it.name);
+	state.currentSeason = state.data.seasons.find(it => it.name === state.seasonNames[0]);
 }
 
 
