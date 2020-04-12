@@ -16,6 +16,9 @@ function createWindow() {
 		minWidth: 1024, minHeight: 800,
 		show: false,
 		frame: false,
+		webPreferences: {
+			nodeIntegration: true
+		}
 	});
 	win.loadFile('index.html');
 	win.setMenu(null);

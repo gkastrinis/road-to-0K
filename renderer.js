@@ -10,6 +10,24 @@ const win = remote.getCurrentWindow();
 const winBar = new WinBar(win, 'winBar', 'Road to 0K');
 const state = {dataFile: new Store().get('dataFile')};
 
+const RANKS = {
+	'HERALD1': 'https://gamepedia.cursecdn.com/dota2_gamepedia/8/85/SeasonalRank1-1.png',
+	'HERALD2': 'https://gamepedia.cursecdn.com/dota2_gamepedia/e/ee/SeasonalRank1-2.png',
+	'HERALD3': 'https://gamepedia.cursecdn.com/dota2_gamepedia/0/05/SeasonalRank1-3.png',
+	'HERALD4': 'https://gamepedia.cursecdn.com/dota2_gamepedia/6/6d/SeasonalRank1-4.png',
+	'HERALD5': 'https://gamepedia.cursecdn.com/dota2_gamepedia/2/2b/SeasonalRank1-5.png',
+	'GUARDIAN1': 'https://gamepedia.cursecdn.com/dota2_gamepedia/c/c7/SeasonalRank2-1.png',
+	'GUARDIAN2': 'https://gamepedia.cursecdn.com/dota2_gamepedia/2/2c/SeasonalRank2-2.png',
+	'GUARDIAN3': 'https://gamepedia.cursecdn.com/dota2_gamepedia/f/f5/SeasonalRank2-3.png',
+	'GUARDIAN4': 'https://gamepedia.cursecdn.com/dota2_gamepedia/b/b4/SeasonalRank2-4.png',
+	'GUARDIAN5': 'https://gamepedia.cursecdn.com/dota2_gamepedia/3/32/SeasonalRank2-5.png',
+	'CRUSADER1': 'https://gamepedia.cursecdn.com/dota2_gamepedia/8/82/SeasonalRank3-1.png',
+	'CRUSADER2': 'https://gamepedia.cursecdn.com/dota2_gamepedia/6/6e/SeasonalRank3-2.png',
+	'CRUSADER3': 'https://gamepedia.cursecdn.com/dota2_gamepedia/6/67/SeasonalRank3-3.png',
+	'CRUSADER4': 'https://gamepedia.cursecdn.com/dota2_gamepedia/8/87/SeasonalRank3-4.png',
+	'CRUSADER5': 'https://gamepedia.cursecdn.com/dota2_gamepedia/b/b1/SeasonalRank3-5.png',
+};
+
 (() => {
 	if (state.dataFile) {
 		loadFile();
@@ -49,14 +67,15 @@ const state = {dataFile: new Store().get('dataFile')};
 			calculateMMR();
 		}, !!state.dataFile));
 		menu.addItem(new MenuItem('MMR file', () => {
-			dialog.showOpenDialog(files => {
-				if (!files) return;
-				state.dataFile = files[0];
+			dialog.showOpenDialog()
+			.then(result=> {
+				if(result.canceled) return;
+				state.dataFile = result.filePaths[0];
 				new Store().set('dataFile', state.dataFile);
 				loadFile();
 				calculateMMR();
 				f();
-			})
+			});
 		}, true));
 
 		if (state.seasonNames) {
@@ -74,19 +93,14 @@ const state = {dataFile: new Store().get('dataFile')};
 			$('#charts').hide();
 			$('#purge').show();
 		}, true));
+		menu.addItem(new MenuSeparator(null, null, null));
 		menu.addItem(new MenuItem('DevTools', () => win.webContents.openDevTools(), true))
 	})();
 
 	////// Purge YT Videos //////
 	let css = {display: "flex", flexWrap: "wrap", justifyContent: "center"};
-	$('#purge').hide().prepend($('<div/>').css(css));//.append($('<div/>').css(css)).append($('<div/>').css(css));
+	$('#purge').hide().prepend($('<div/>').css(css));
 	$('#purge > div:nth-child(1)').append($('<iframe width="1280" height="720" src="https://www.youtube.com/embed/videoseries?list=PLx5AyE42HmyXadgEkkIK51Ph8ltBBgDX2"/>'));
-	// ['9Szj-CloJiI', 'KWPWDWyzFso', '3KbAMEnsRLg', '_NmktQ7xBRc', '7KQ_ysnhpnI', 'Asv6OODaxSI', '_mLHjI7teys', 'AIxIB57PTgk', 'EKHk6Ba_dwA', 'dVGBk96Pnrg'].forEach(it => {
-	// 	$('#purge > div:nth-child(2)').append($('<iframe width="560" height="315"/>').attr('src', 'https://www.youtube.com/embed/' + it + '?rel=0'))
-	// });
-	// ['u0rYxCVRrUM', 'PVpsmxuZJGU', 'YgTu7bnTU3E', 'RjCpVfaO1s8', 'Z_rFHfWlEuM', 'M9AKuHy4dpo', 'S20bc4Tn6Ck'].forEach(it => {
-	// 	$('#purge > div:nth-child(3)').append($('<iframe width="560" height="315"/>').attr('src', 'https://www.youtube.com/embed/' + it + '?rel=0'))
-	// })
 	$('#back').click(() => {
 		$('#purge').hide();
 		$('#charts').show();
@@ -158,6 +172,7 @@ function saveAndCloseEditor() {
 
 function loadFile() {
 	try {
+		console.log(state.dataFile);
 		state.rawData = fs.readFileSync(state.dataFile);
 		$('#empty').hide();
 	} catch (err) {
@@ -247,12 +262,14 @@ function calculateMMR() {
 	});
 
 	$('#dotabuff').attr('href', state.data.profile);
-	$('#dotabuff > img').attr('src', state.data.avatar);
+	$('#dotabuff > img:nth-child(1)').attr('src', state.data.avatar).addClass('rounded-circle');
+	$('#dotabuff > img:nth-child(2)').attr('src', RANKS[state.currentSeason.currentRank]);
+
 	$('#games').text(mmrGames);
 	$('#wins').text(winSum);
 	$('#winRate').text(Math.round(100 * (winSum / mmrGames)) + "%");
 	$('#minMMR').text(minMMR);
-	$('#currMMR').text(currMMR).addClass(((currMMR === maxMMR) ? 'c-green' : (currMMR === minMMR ? 'c-red' : 'c-gold')));
+	$('#currMMR').text(currMMR).removeClass('c-green c-red c-gold').addClass(((currMMR === maxMMR) ? 'c-green' : (currMMR === minMMR ? 'c-red' : 'c-gold')));//.append($('<i/>').addClass('fa'));
 	$('#maxMMR').text(maxMMR);
 	$('#maxLoseStreak').text("-" + maxLoseStreak);
 	$('#maxWinStreak').text("+" + maxWinStreak);
@@ -320,6 +337,13 @@ function calculateMMR() {
 			itemHiddenStyle: {color: cDisabled},
 		},
 		credits: {enabled: false},
+	});
+
+	// Handle bug in plotlines text
+	Highcharts.wrap(Highcharts.Axis.prototype, 'getPlotLinePath', function(proceed) {
+		var path = proceed.apply(this, Array.prototype.slice.call(arguments, 1));
+		if (path) path.flat = false;
+		return path;
 	});
 
 	// Plot Lines
