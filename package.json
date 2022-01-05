@@ -20,7 +20,7 @@
     "productName": "Road To 0K",
     "win": {
       "target": "NSIS",
-      "icon": "build/dota2-inv.png",
+      "icon": "build/dota2-inv-0K.png",
       "artifactName": "${productName} Setup.${ext}"
     }
   },
